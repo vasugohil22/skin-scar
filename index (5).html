@@ -1,0 +1,2020 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Skin Scar Simulation</title>
+    <!-- Tailwind CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+    <!-- Three.js for 3D rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <!-- GSAP for animations -->
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.2/dist/gsap.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #333;
+            line-height: 1.6;
+            background-color: #f8fafc;
+        }
+
+        .skin-layer {
+            transition: all 0.5s ease-in-out;
+        }
+
+        .cell {
+            transition: all 0.5s ease;
+        }
+
+        .highlight-cell {
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .active-btn {
+            background-color: #4f46e5;
+            color: white;
+        }
+
+        .section-container {
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .zoom-container {
+            position: relative;
+            overflow: hidden;
+            height: 400px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+
+        .zoom-container:hover {
+            box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+        }
+
+        /* Realistic skin layers */
+        .epidermis-layer {
+            background: linear-gradient(to bottom, #ffecd9, #ffdebc);
+            position: relative;
+        }
+
+        .epidermis-layer::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to bottom, rgba(255,222,188,0), rgba(255,222,188,0.7));
+        }
+
+        .dermis-layer {
+            background: linear-gradient(to bottom, #ffc7a1, #ffb380);
+            position: relative;
+        }
+
+        .dermis-layer::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(to bottom, rgba(255,179,128,0), rgba(255,179,128,0.7));
+        }
+
+        .hypodermis-layer {
+            background: linear-gradient(to bottom, #ffe0bc, #ffd1a3);
+        }
+
+        /* Scar type specific styles */
+        .atrophic .epidermis-layer {
+            transform: scaleY(0.7);
+        }
+
+        .atrophic .dermis-layer {
+            background: linear-gradient(to bottom, #ffc7a1, #ffb380);
+            opacity: 0.8;
+        }
+
+        .hypertrophic .epidermis-layer {
+            transform: scaleY(1.3);
+        }
+
+        .hypertrophic .dermis-layer {
+            transform: scaleY(1.2);
+            background: linear-gradient(to bottom, #ffb992, #ff9e66);
+        }
+
+        .keloid .epidermis-layer {
+            transform: scaleY(1.5);
+        }
+
+        .keloid .dermis-layer {
+            transform: scaleY(1.4);
+            background: linear-gradient(to bottom, #ffad7f, #ff8547);
+        }
+
+        .contracture .skin-container {
+            transform: scaleX(0.9);
+        }
+
+        .contracture .dermis-layer {
+            background: linear-gradient(to bottom, #ffb992, #ff9e66);
+            transform: scaleY(0.9);
+        }
+
+        .striae .epidermis-layer {
+            transform: scaleY(0.8);
+            background: linear-gradient(to bottom, #fff1e6, #ffe8d9);
+        }
+
+        .striae .dermis-layer {
+            background: linear-gradient(to bottom, #ffd1b3, #ffc299);
+            opacity: 0.9;
+        }
+
+        .normotrophic .epidermis-layer {
+            background: linear-gradient(to bottom, #ffecd9, #ffdebc);
+        }
+
+        .normotrophic .dermis-layer {
+            background: linear-gradient(to bottom, #ffcdb2, #ffbb99);
+        }
+
+        .hyperpigmented .epidermis-layer {
+            background: linear-gradient(to bottom, #e6ccb3, #d9b38c);
+        }
+
+        .hypopigmented .epidermis-layer {
+            background: linear-gradient(to bottom, #fff5eb, #fff1e6);
+        }
+
+        /* Cellular components */
+        .keratinocyte {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: absolute;
+            background-color: rgba(255, 204, 153, 0.7);
+            transition: all 0.5s ease;
+        }
+
+        .fibroblast {
+            width: 12px;
+            height: 6px;
+            border-radius: 40%;
+            position: absolute;
+            background-color: rgba(204, 153, 102, 0.7);
+            transition: all 0.8s ease;
+        }
+
+        .collagen {
+            height: 2px;
+            background-color: rgba(255, 153, 102, 0.6);
+            position: absolute;
+            transform-origin: left center;
+            transition: all 0.5s ease;
+        }
+
+        .elastin {
+            height: 1px;
+            background-color: rgba(255, 204, 153, 0.5);
+            position: absolute;
+            transform-origin: left center;
+            transition: all 0.5s ease;
+        }
+
+        .melanocyte {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            position: absolute;
+            background-color: rgba(102, 51, 0, 0.7);
+            transition: all 0.5s ease;
+        }
+
+        /* Animation classes */
+        .cellular-process {
+            animation: fadeInOut 8s infinite;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0.2; }
+            50% { opacity: 1; }
+            100% { opacity: 0.2; }
+        }
+
+        .collagen-animation {
+            animation: growCollagen 3s ease-in-out;
+        }
+
+        @keyframes growCollagen {
+            from { transform: scaleX(0); }
+            to { transform: scaleX(1); }
+        }
+
+        .fibroblast-animation {
+            animation: moveCell 15s linear infinite;
+        }
+
+        @keyframes moveCell {
+            0% { transform: translateX(0) translateY(0); }
+            25% { transform: translateX(50px) translateY(20px); }
+            50% { transform: translateX(100px) translateY(-20px); }
+            75% { transform: translateX(50px) translateY(30px); }
+            100% { transform: translateX(0) translateY(0); }
+        }
+
+        .inflammatory-cell {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            position: absolute;
+            background-color: rgba(255, 102, 102, 0.8);
+            transition: all 0.3s ease;
+        }
+
+        .inflammatory-animation {
+            animation: inflammatoryMove 10s linear infinite;
+        }
+
+        @keyframes inflammatoryMove {
+            0% { transform: translateX(0) translateY(0); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateX(200px) translateY(30px); opacity: 0; }
+        }
+
+        /* New Animations for Scar Formation on Stratum Corneum and Epidermis */
+        .scar-formation-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        .scar-progression {
+            position: absolute;
+            background: linear-gradient(to bottom, rgba(255, 153, 102, 0.3), rgba(255, 153, 102, 0));
+            opacity: 0;
+            transition: opacity 0.5s ease;
+        }
+
+        .scar-progression.active {
+            opacity: 0.6;
+            animation: scarGrowth 4s ease-in-out forwards;
+        }
+
+        @keyframes scarGrowth {
+            0% { width: 0%; height: 0%; }
+            50% { width: 20%; height: 20%; }
+            100% { width: 30%; height: 25%; }
+        }
+
+        .keratinocyte-proliferation {
+            animation: proliferate 2s ease-in-out infinite;
+        }
+
+        @keyframes proliferate {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.7; }
+        }
+
+        .keratinocyte-thinning {
+            animation: thinOut 3s ease-in-out forwards;
+        }
+
+        @keyframes thinOut {
+            0% { transform: scale(1); opacity: 0.7; }
+            100% { transform: scale(0.8); opacity: 0.5; }
+        }
+
+        .collagen-disruption {
+            animation: disruptCollagen 3s ease-in-out forwards;
+        }
+
+        @keyframes disruptCollagen {
+            0% { width: 40px; opacity: 0.6; }
+            100% { width: 20px; opacity: 0.3; transform: rotate(45deg); }
+        }
+
+        .collagen-excess {
+            animation: excessCollagen 3s ease-in-out forwards;
+        }
+
+        @keyframes excessCollagen {
+            0% { width: 40px; opacity: 0.6; }
+            100% { width: 60px; opacity: 0.8; transform: rotate(-15deg); }
+        }
+
+        /* Zoom view styles */
+        .zoom-view {
+            height: 100%;
+            width: 100%;
+            position: relative;
+            overflow: hidden;
+            border-radius: 6px;
+        }
+
+        .zoom-view-keratinocyte {
+            background: linear-gradient(to bottom, #ffecd9, #ffdebc);
+        }
+
+        .zoom-view-collagen {
+            background: linear-gradient(to bottom, #ffc7a1, #ffb380);
+        }
+
+        .zoom-view-fibroblast {
+            background: linear-gradient(to bottom, #ffc7a1, #ffb380);
+        }
+
+        /* Callout styles */
+        .callout {
+            position: absolute;
+            background-color: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(79, 70, 229, 0.3);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 0.75rem;
+            color: #4f46e5;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+            max-width: 160px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .callout.visible {
+            opacity: 1;
+        }
+
+        .callout::before {
+            content: '';
+            position: absolute;
+            border: 6px solid transparent;
+        }
+
+        .callout.top::before {
+            border-top-color: rgba(255, 255, 255, 0.9);
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .callout.bottom::before {
+            border-bottom-color: rgba(255, 255, 255, 0.9);
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .callout.left::before {
+            border-left-color: rgba(255, 255, 255, 0.9);
+            right: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .callout.right::before {
+            border-right-color: rgba(255, 255, 255, 0.9);
+            left: -12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* Progress bar styles */
+        .timeline {
+            position: relative;
+            height: 6px;
+            background-color: #e5e7eb;
+            border-radius: 3px;
+            margin: 30px 0 10px;
+        }
+
+        .timeline-marker {
+            position: absolute;
+            top: -8px;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: #4f46e5;
+            transform: translateX(-50%);
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .timeline-marker:hover {
+            transform: translateX(-50%) scale(1.2);
+        }
+
+        .timeline-progress {
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background-color: #4f46e5;
+            border-radius: 3px;
+            transition: width 0.5s ease;
+        }
+
+        /* Interactive hotspot styles */
+        .hotspot {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: rgba(79, 70, 229, 0.2);
+            border: 2px solid rgba(79, 70, 229, 0.5);
+            cursor: pointer;
+            z-index: 10;
+            transition: all 0.3s ease;
+        }
+
+        .hotspot::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: rgba(79, 70, 229, 0.6);
+            animation: pulse 2s infinite;
+        }
+
+        .hotspot:hover {
+            transform: scale(1.2);
+            background-color: rgba(79, 70, 229, 0.3);
+        }
+
+        /* Loading indicator for transitions */
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.visible {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(79, 70, 229, 0.3);
+            border-radius: 50%;
+            border-top-color: #4f46e5;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Table styles for better PDF export */
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        th, td {
+            border: 1px solid #e5e7eb;
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f9fafb;
+            font-weight: 600;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f3f4f6;
+        }
+
+        /* Better visualization for PDF */
+        @media print {
+            .section-container {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+
+            .skin-visualization,
+            .zoom-container {
+                break-inside: avoid;
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container mx-auto px-4 py-8 max-w-7xl">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-indigo-800 mb-2">Interactive Skin Scar Simulation</h1>
+            <p class="text-lg text-gray-600">Explore the cellular mechanisms of different scar types</p>
+        </header>
+
+        <div class="section-container bg-white p-6">
+            <h2 class="text-2xl font-semibold text-indigo-700 mb-4">Skin Structure & Scar Types</h2>
+            <div class="flex flex-col md:flex-row gap-6">
+                <!-- Controls -->
+                <div class="w-full md:w-1/4">
+                    <div class="bg-gray-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-lg mb-3">Select Skin Type</h3>
+                        <div class="flex flex-col gap-2">
+                            <button id="normal-btn" class="scar-button active-btn px-4 py-2 rounded-md text-left">
+                                Normal Skin
+                            </button>
+                            <button id="atrophic-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                1. Atrophic Scars
+                            </button>
+                            <button id="hypertrophic-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                2. Hypertrophic Scars
+                            </button>
+                            <button id="keloid-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                3. Keloid Scars
+                            </button>
+                            <button id="contracture-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                4. Contracture Scars
+                            </button>
+                            <button id="striae-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                5. Stretch Marks (Striae)
+                            </button>
+                            <button id="normotrophic-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                6. Flat/Normotrophic Scars
+                            </button>
+                            <button id="hyperpigmented-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                7a. Hyperpigmented Scars
+                            </button>
+                            <button id="hypopigmented-btn" class="scar-button bg-gray-200 hover:bg-indigo-100 px-4 py-2 rounded-md text-left">
+                                7b. Hypopigmented Scars
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 bg-gray-100 p-4 rounded-lg">
+                        <h3 class="font-semibold text-lg mb-3">Healing Timeline</h3>
+                        <div class="timeline">
+                            <div class="timeline-progress" style="width: 0%;"></div>
+                            <div class="timeline-marker" style="left: 0%;" data-phase="injury"></div>
+                            <div class="timeline-marker" style="left: 20%;" data-phase="inflammation"></div>
+                            <div class="timeline-marker" style="left: 40%;" data-phase="proliferation"></div>
+                            <div class="timeline-marker" style="left: 60%;" data-phase="remodeling-early"></div>
+                            <div class="timeline-marker" style="left: 100%;" data-phase="remodeling-late"></div>
+                        </div>
+                        <div class="flex justify-between text-xs text-gray-600 mt-1">
+                            <span>Injury</span>
+                            <span>Inflammation</span>
+                            <span>Proliferation</span>
+                            <span>Remodeling</span>
+                            <span>Maturation</span>
+                        </div>
+                        <div id="timeline-description" class="mt-3 text-sm">
+                            <p>Select a phase in the healing timeline to see cellular changes during scar formation.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Skin Visualization -->
+                <div class="w-full md:w-3/4">
+                    <div id="skin-visualization" class="normal relative border rounded-lg overflow-hidden" style="height: 400px;">
+                        <!-- Loading overlay -->
+                        <div id="loading-overlay" class="loading-overlay">
+                            <div class="spinner"></div>
+                        </div>
+
+                        <!-- Skin Layers -->
+                        <div class="skin-container relative w-full h-full">
+                            <!-- Epidermis -->
+                            <div class="skin-layer epidermis-layer absolute top-5 w-full" style="height: 30%;">
+                                <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                                    <div class="layer-label text-sm font-semibold text-gray-700">Epidermis</div>
+                                </div>
+                                <!-- Stratum Corneum Highlight -->
+                                <div class="absolute top-0 left-0 w-full" style="height: 25%; background-color: rgba(255,255,255,0.3);">
+                                    <div class="text-xs text-center">Stratum Corneum</div>
+                                </div>
+                                <!-- Keratinocytes Container -->
+                                <div id="keratinocytes-container" class="absolute top-0 left-0 w-full h-full"></div>
+                                <!-- Melanocytes Container -->
+                                <div id="melanocytes-container" class="absolute top-0 left-0 w-full h-full"></div>
+                                <!-- Scar Formation Overlay -->
+                                <div id="scar-formation-overlay" class="scar-formation-overlay"></div>
+                            </div>
+
+                            <!-- Dermis -->
+                            <div class="skin-layer dermis-layer absolute w-full" style="top: 5%; height: 50%;">
+                                <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                                    <div class="layer-label text-sm font-semibold text-gray-700">Dermis</div>
+                                </div>
+                                <!-- Collagen and Elastin Container -->
+                                <div id="collagen-container" class="absolute top-0 left-0 w-full h-full"></div>
+                                <!-- Fibroblasts Container -->
+                                <div id="fibroblasts-container" class="absolute top-0 left-0 w-full h-full"></div>
+                                <!-- Inflammatory Cells Container -->
+                                <div id="inflammatory-container" class="absolute top-0 left-0 w-full h-full"></div>
+                            </div>
+
+                            <!-- Hypodermis -->
+                            <div class="skin-layer hypodermis-layer absolute bottom-0 w-full" style="height: 30%;">
+                                <div class="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+                                    <div class="layer-label text-sm font-semibold text-gray-700">Hypodermis</div>
+                                </div>
+                                <!-- Blood vessels container -->
+                                <div id="vessels-container" class="absolute top-0 left-0 w-full h-full"></div>
+                            </div>
+
+                            <!-- Hotspots for interactive info -->
+                            <div id="hotspots-container" class="absolute top-0 left-0 w-full h-full"></div>
+
+                            <!-- Callout Labels -->
+                            <div id="callouts-container" class="absolute top-0 left-0 w-full h-full"></div>
+                        </div>
+                    </div>
+
+                    <!-- Description -->
+                    <div id="scar-description" class="mt-4 p-4 bg-indigo-50 rounded-lg">
+                        <h3 class="text-xl font-semibold text-indigo-700 mb-2">Normal Skin</h3>
+                        <p class="text-gray-700">
+                            Normal skin consists of three main layers: epidermis, dermis, and hypodermis. The epidermis contains keratinocytes that produce keratin, providing a protective barrier. The dermis contains collagen and elastin fibers arranged in a basket-weave pattern, providing strength and elasticity. Fibroblasts in the dermis produce extracellular matrix components. The hypodermis consists primarily of adipocytes providing insulation and cushioning.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Zoomed Views -->
+        <div class="section-container bg-white p-6">
+            <h2 class="text-2xl font-semibold text-indigo-700 mb-4">Cellular Mechanisms</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Keratinocyte & Keratin View -->
+                <div class="zoom-container bg-gray-50 p-4">
+                    <h3 class="text-lg font-semibold text-indigo-700 mb-2">Keratinocytes & Keratin</h3>
+                    <div class="zoom-view zoom-view-keratinocyte" id="keratinocyte-zoom">
+                        <!-- Dynamic content will be added with JS -->
+                    </div>
+                    <div id="keratinocyte-description" class="mt-4 text-sm">
+                        <p><strong>Normal:</strong> Organized layers of keratinocytes forming the stratum corneum with healthy keratin production for barrier function.</p>
+                    </div>
+                </div>
+
+                <!-- Collagen & Elastin View -->
+                <div class="zoom-container bg-gray-50 p-4">
+                    <h3 class="text-lg font-semibold text-indigo-700 mb-2">Collagen & Elastin</h3>
+                    <div class="zoom-view zoom-view-collagen" id="collagen-zoom">
+                        <!-- Dynamic content will be added with JS -->
+                    </div>
+                    <div id="collagen-description" class="mt-4 text-sm">
+                        <p><strong>Normal:</strong> Collagen fibers (type I and III) arranged in a basket-weave pattern with elastin fibers providing elasticity and recoil.</p>
+                    </div>
+                </div>
+
+                <!-- Fibroblast & Fibrin View -->
+                <div class="zoom-container bg-gray-50 p-4">
+                    <h3 class="text-lg font-semibold text-indigo-700 mb-2">Fibroblasts & Fibrin</h3>
+                    <div class="zoom-view zoom-view-fibroblast" id="fibroblast-zoom">
+                        <!-- Dynamic content will be added with JS -->
+                    </div>
+                    <div id="fibroblast-description" class="mt-4 text-sm">
+                        <p><strong>Normal:</strong> Fibroblasts are scattered throughout the dermis, producing collagen and elastin in balanced amounts. Fibrin forms temporary scaffolds during wound healing.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scar Comparison Table -->
+        <div class="section-container bg-white p-6">
+            <h2 class="text-2xl font-semibold text-indigo-700 mb-4">Scar Type Comparison</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                        <tr>
+                            <th>Scar Type</th>
+                            <th>Appearance</th>
+                            <th>Keratinocyte/Keratin Abnormality</th>
+                            <th>Collagen/Elastin Abnormality</th>
+                            <th>Fibroblast/Fibrin Activity</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Atrophic</strong></td>
+                            <td>Depressed, sunken, pitted</td>
+                            <td>Reduced proliferation, thinned epidermis with fewer keratinocyte layers</td>
+                            <td>Decreased collagen density, fragmented elastin fibers</td>
+                            <td>Decreased fibroblast activity, reduced ECM production</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Hypertrophic</strong></td>
+                            <td>Raised, confined to original wound</td>
+                            <td>Hyperproliferation of keratinocytes, thickened epidermis</td>
+                            <td>Excessive type III collagen, disorganized arrangement</td>
+                            <td>Overactive fibroblasts, increased density</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Keloid</strong></td>
+                            <td>Raised, extends beyond wound borders</td>
+                            <td>Hyperproliferation, abnormal differentiation</td>
+                            <td>Excessive type I & III collagen, random orientation</td>
+                            <td>Highly overactive fibroblasts, continued proliferation</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Contracture</strong></td>
+                            <td>Tight, constricted tissue</td>
+                            <td>Dense keratinocyte layers, compressed arrangement</td>
+                            <td>Shortened, aligned collagen fibers under tension</td>
+                            <td>Myofibroblast contraction, high tension forces</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Stretch Marks</strong></td>
+                            <td>Linear, initially red then white</td>
+                            <td>Thinned epidermis, flattened rete ridges</td>
+                            <td>Damaged elastin fibers, sparse then reorganized collagen</td>
+                            <td>Initial inflammation, then reduced fibroblast activity</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Flat/Normotrophic</strong></td>
+                            <td>Flat, level with surrounding skin</td>
+                            <td>Near normal keratinocyte proliferation</td>
+                            <td>Normal amount of collagen, slightly disorganized pattern</td>
+                            <td>Initially active, returns to normal over time</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Hyperpigmented</strong></td>
+                            <td>Darker than surrounding skin</td>
+                            <td>Normal structure, increased melanin transfer to keratinocytes</td>
+                            <td>Variable depending on underlying scar type</td>
+                            <td>Normal fibroblast activity, increased melanocyte activity</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Hypopigmented</strong></td>
+                            <td>Lighter than surrounding skin</td>
+                            <td>Normal structure, reduced melanin transfer</td>
+                            <td>Variable depending on underlying scar type</td>
+                            <td>Normal fibroblast activity, decreased melanocyte activity</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Detailed Explanations -->
+        <div class="section-container bg-white p-6">
+            <h2 class="text-2xl font-semibold text-indigo-700 mb-4">Detailed Mechanisms of Scar Formation</h2>
+            <div id="scar-details" class="space-y-8">
+                <!-- Keratinocyte Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-3">Keratinocyte & Keratin Abnormalities</h3>
+                    <p class="mb-4">Keratinocytes undergo specific changes during scarring, affecting the stratum corneum layer:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Hypertrophic & Keloid Scars</h4>
+                            <p>Hyperproliferation of keratinocytes leads to thicker epidermis with abnormal differentiation patterns. TGF-β signaling increases, promoting keratinocyte activation. The stratum corneum shows disorganized keratin with altered barrier function.</p>
+                        </div>
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Atrophic Scars</h4>
+                            <p>Reduced keratinocyte proliferation results in thinned epidermis with fewer keratinocyte layers. Decreased epidermal stem cell activity impairs regeneration. The stratum corneum is thinner with reduced barrier function.</p>
+                        </div>
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Contracture Scars</h4>
+                            <p>Dense keratinocyte layers with compressed spatial arrangement occur due to mechanical forces. Keratinocyte-fibroblast interactions are altered, with increased cytokine production that further drives contraction.</p>
+                        </div>
+                        <div class="bg-orange-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Pigmented Scars</h4>
+                            <p>Keratinocytes contain abnormal amounts of transferred melanin from melanocytes. In hyperpigmented scars, increased melanin is observed, while hypopigmented scars show decreased melanin transfer or melanocyte destruction.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Collagen Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-3">Collagen & Elastin Abnormalities</h3>
+                    <p class="mb-4">The dermal layer shows significant extracellular matrix disruptions in scars:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-pink-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Normal Skin</h4>
+                            <p>Type I collagen (70-80%) and type III collagen (10-15%) arranged in a basket-weave pattern with elastin fibers interspersed, providing both strength and elasticity. Collagen fibers are loosely arranged with multidirectional orientation.</p>
+                        </div>
+                        <div class="bg-pink-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Hypertrophic & Keloid Scars</h4>
+                            <p>Excessive collagen deposition, particularly type III initially, with later shift to type I. Collagen fibers are arranged in nodular, thick parallel bundles rather than the normal basket-weave pattern. Reduced elastin content impairs tissue flexibility.</p>
+                        </div>
+                        <div class="bg-pink-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Atrophic Scars</h4>
+                            <p>Decreased collagen density with thin, fragmented fibers. Elastin network is disrupted with sparse distribution. The ratio of type III to type I collagen is abnormal, affecting tissue strength and resilience.</p>
+                        </div>
+                        <div class="bg-pink-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Contracture & Stretch Marks</h4>
+                            <p>In contractures, collagen fibers are shortened and aligned in the direction of tension. In stretch marks, rapid mechanical stretching damages the elastin network with initially sparse, thin collagen that is later reorganized abnormally.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Fibroblast Section -->
+                <div>
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-3">Fibroblast & Fibrin Disruption</h3>
+                    <p class="mb-4">Fibroblasts are central to scar formation through several mechanisms:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Initial Wound Healing</h4>
+                            <p>Fibrin forms a provisional matrix for fibroblast migration during early wound healing. This fibrin scaffold guides fibroblast organization and subsequent collagen deposition. Abnormalities in fibrin formation can lead to disorganized tissue repair.</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Myofibroblast Transformation</h4>
+                            <p>Fibroblasts transform into contractile myofibroblasts (α-SMA expressing cells) especially in contracture scars. These specialized cells generate tension forces that bring wound edges together but can cause excessive contracture if persistent.</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Hypertrophic & Keloid Activity</h4>
+                            <p>In hypertrophic and keloid scars, fibroblasts show increased proliferation, reduced apoptosis, and enhanced collagen production. TGF-β signaling is dysregulated, promoting continuous fibrotic activity. Keloid fibroblasts demonstrate autonomous growth even outside the wound.</p>
+                        </div>
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Atrophic Scar Mechanisms</h4>
+                            <p>In atrophic scars, fibroblast activity and number are decreased. This results in insufficient matrix production and tissue support. Matrix metalloproteinases (MMPs) may be overexpressed, causing excessive ECM degradation.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Wound Healing Process -->
+                <div>
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-3">Scar Formation Pathophysiology</h3>
+                    <p class="mb-4">Scar formation involves complex interactions between multiple cell types and processes:</p>
+                    <ol class="list-decimal pl-6 space-y-3">
+                        <li><strong>Inflammation:</strong> Neutrophils and macrophages infiltrate the wound site, clearing debris and releasing cytokines that stimulate fibroblast activity.</li>
+                        <li><strong>Fibrin Matrix:</strong> Formation of provisional fibrin scaffold serves as a template for cell migration and initial tissue repair.</li>
+                        <li><strong>Fibroblast Migration:</strong> Fibroblasts migrate into the wound and begin producing collagen and other ECM components.</li>
+                        <li><strong>Collagen Production:</strong> Initially type III collagen is produced, later replaced by stronger type I collagen during maturation.</li>
+                        <li><strong>Matrix Remodeling:</strong> The ECM undergoes continuous remodeling over months to years through balanced activity of matrix metalloproteinases and their inhibitors.</li>
+                        <li><strong>Keratinocyte Response:</strong> Changes in keratinocyte proliferation and differentiation determine epidermal thickness and barrier function.</li>
+                        <li><strong>Pigmentation Changes:</strong> Alterations in melanocyte activity affect final scar pigmentation, which can be either increased or decreased.</li>
+                    </ol>
+                    <p class="mt-4">The balance of these processes determines whether healing results in minimal scarring or one of the pathological scar types. Genetic factors, mechanical forces, inflammation intensity, and wound location all influence the final outcome.</p>
+                </div>
+
+                <!-- Treatment Implications -->
+                <div>
+                    <h3 class="text-xl font-semibold text-indigo-600 mb-3">Treatment Implications Based on Scar Pathophysiology</h3>
+                    <p class="mb-4">Understanding the cellular mechanisms of different scar types guides targeted treatment approaches:</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Hypertrophic & Keloid Scars</h4>
+                            <p>Treatments target excessive collagen production through pressure therapy, silicone sheets, intralesional corticosteroids, and anti-fibrotic agents. 5-Fluorouracil and bleomycin inhibit fibroblast proliferation. Laser therapy may reorganize collagen fibers and reduce inflammation.</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Atrophic Scars</h4>
+                            <p>Treatments focus on stimulating collagen production through microneedling, dermal fillers, and ablative laser resurfacing. Growth factors like platelet-rich plasma (PRP) promote fibroblast activity and collagen synthesis. Punch excision and subcision release tethered fibrous bands.</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Contracture Scars</h4>
+                            <p>Physical therapy and splinting counteract contraction forces. Z-plasty and other surgical techniques release and reorient contracture bands. Fat grafting provides volume and reduces tension. Botulinum toxin temporarily weakens myofibroblast contractility.</p>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <h4 class="font-semibold mb-2">Pigmentation Abnormalities</h4>
+                            <p>Hyperpigmentation: Topical retinoids, hydroquinone, and chemical peels reduce melanin production. Laser therapy targets excess melanin. Hypopigmentation: Excimer laser stimulates melanocyte activity. Micropigmentation can camouflage affected areas.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Variables to track current state
+        let currentScar = 'normal';
+        let currentPhase = 'normal';
+        let isTransitioning = false;
+
+        // Main elements
+        const skinVisualization = document.getElementById('skin-visualization');
+        const loadingOverlay = document.getElementById('loading-overlay');
+
+        // Description elements
+        const scarDescription = document.getElementById('scar-description');
+        const keratinocyteDescription = document.getElementById('keratinocyte-description');
+        const collagenDescription = document.getElementById('collagen-description');
+        const fibroblastDescription = document.getElementById('fibroblast-description');
+        const timelineDescription = document.getElementById('timeline-description');
+
+        // Zoom view elements
+        const keratinocyteZoom = document.getElementById('keratinocyte-zoom');
+        const collagenZoom = document.getElementById('collagen-zoom');
+        const fibroblastZoom = document.getElementById('fibroblast-zoom');
+
+        // Cell container elements
+        const keratinocytesContainer = document.getElementById('keratinocytes-container');
+        const melanocytesContainer = document.getElementById('melanocytes-container');
+        const collagenContainer = document.getElementById('collagen-container');
+        const fibroblastsContainer = document.getElementById('fibroblasts-container');
+        const inflammatoryContainer = document.getElementById('inflammatory-container');
+        const vesselsContainer = document.getElementById('vessels-container');
+        const hotspotsContainer = document.getElementById('hotspots-container');
+        const calloutsContainer = document.getElementById('callouts-container');
+        const scarFormationOverlay = document.getElementById('scar-formation-overlay');
+
+        // Timeline elements
+        const timelineMarkers = document.querySelectorAll('.timeline-marker');
+        const timelineProgress = document.querySelector('.timeline-progress');
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSkin();
+            setupEventListeners();
+        });
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Scar type buttons
+            const scarButtons = document.querySelectorAll('.scar-button');
+            scarButtons.forEach(button => {
+                button.addEventListener('click', function() {
+                    if (isTransitioning) return;
+
+                    // Remove active class from all buttons
+                    scarButtons.forEach(btn => {
+                        btn.classList.remove('active-btn');
+                        btn.classList.add('bg-gray-200');
+                    });
+
+                    // Add active class to clicked button
+                    this.classList.add('active-btn');
+                    this.classList.remove('bg-gray-200');
+
+                    // Update current scar type
+                    const scarType = this.id.replace('-btn', '');
+                    updateScarType(scarType);
+                });
+            });
+
+            // Timeline markers
+            timelineMarkers.forEach(marker => {
+                marker.addEventListener('click', function() {
+                    if (isTransitioning) return;
+
+                    const phase = this.getAttribute('data-phase');
+                    const position = parseFloat(this.style.left);
+
+                    // Update timeline progress
+                    timelineProgress.style.width = `${position}%`;
+
+                    // Update healing phase
+                    updateHealingPhase(phase);
+                });
+            });
+        }
+
+        // Initialize skin visualization
+        function initializeSkin() {
+            showLoadingOverlay();
+
+            // Create initial cell components
+            createKeratinocytes('normal');
+            createMelanocytes('normal');
+            createCollagenElastin('normal');
+            createFibroblasts('normal');
+            createHotspots('normal');
+            createScarFormation('normal');
+
+            // Create zoom view contents
+            updateZoomViews('normal');
+
+            hideLoadingOverlay();
+        }
+
+        // Update scar type
+        function updateScarType(scarType) {
+            if (currentScar === scarType) return;
+
+            showLoadingOverlay();
+
+            isTransitioning = true;
+
+            // Clear existing components
+            clearCellComponents();
+
+            // Update visualization class
+            skinVisualization.className = 'relative border rounded-lg overflow-hidden';
+            skinVisualization.classList.add(scarType);
+
+            setTimeout(() => {
+                // Create new components for the selected scar type
+                createKeratinocytes(scarType);
+                createMelanocytes(scarType);
+                createCollagenElastin(scarType);
+                createFibroblasts(scarType);
+                createInflammatoryCells(scarType);
+                createHotspots(scarType);
+                createScarFormation(scarType);
+
+                // Update zoom views
+                updateZoomViews(scarType);
+
+                // Update descriptions
+                updateDescriptions(scarType);
+
+                // Store current scar type
+                currentScar = scarType;
+
+                setTimeout(() => {
+                    hideLoadingOverlay();
+                    isTransitioning = false;
+                }, 300);
+            }, 500);
+        }
+
+        // Update healing phase
+        function updateHealingPhase(phase) {
+            if (currentPhase === phase) return;
+
+            showLoadingOverlay();
+            isTransitioning = true;
+
+            // Clear existing inflammatory cells and fibroblasts
+            inflammatoryContainer.innerHTML = '';
+            fibroblastsContainer.innerHTML = '';
+
+            setTimeout(() => {
+                // Create phase-specific cells
+                createInflammatoryCells(currentScar, phase);
+                createFibroblasts(currentScar, phase);
+
+                // Update timeline description
+                updateTimelineDescription(phase);
+
+                // Store current phase
+                currentPhase = phase;
+
+                setTimeout(() => {
+                    hideLoadingOverlay();
+                    isTransitioning = false;
+                }, 300);
+            }, 500);
+        }
+
+        // Show loading overlay
+        function showLoadingOverlay() {
+            loadingOverlay.classList.add('visible');
+        }
+
+        // Hide loading overlay
+        function hideLoadingOverlay() {
+            loadingOverlay.classList.remove('visible');
+        }
+
+        // Clear all cell components
+        function clearCellComponents() {
+            keratinocytesContainer.innerHTML = '';
+            melanocytesContainer.innerHTML = '';
+            collagenContainer.innerHTML = '';
+            fibroblastsContainer.innerHTML = '';
+            inflammatoryContainer.innerHTML = '';
+            hotspotsContainer.innerHTML = '';
+            calloutsContainer.innerHTML = '';
+            scarFormationOverlay.innerHTML = '';
+        }
+
+        // Create keratinocytes based on scar type
+        function createKeratinocytes(scarType) {
+            keratinocytesContainer.innerHTML = '';
+
+            let count, size, opacity, color;
+
+            switch(scarType) {
+                case 'normal':
+                    count = 60;
+                    size = { min: 8, max: 12 };
+                    opacity = { min: 0.6, max: 0.8 };
+                    color = '#ffcc99';
+                    break;
+                case 'atrophic':
+                    count = 30;
+                    size = { min: 6, max: 9 };
+                    opacity = { min: 0.5, max: 0.7 };
+                    color = '#ffcc99';
+                    break;
+                case 'hypertrophic':
+                case 'keloid':
+                    count = 90;
+                    size = { min: 10, max: 14 };
+                    opacity = { min: 0.7, max: 0.9 };
+                    color = '#ffcc99';
+                    break;
+                case 'contracture':
+                    count = 70;
+                    size = { min: 8, max: 12 };
+                    opacity = { min: 0.6, max: 0.8 };
+                    color = '#ffcc99';
+                    break;
+                case 'striae':
+                    count = 40;
+                    size = { min: 7, max: 10 };
+                    opacity = { min: 0.5, max: 0.7 };
+                    color = '#ffcc99';
+                    break;
+                case 'hyperpigmented':
+                    count = 60;
+                    size = { min: 8, max: 12 };
+                    opacity = { min: 0.6, max: 0.8 };
+                    color = '#d9b38c';
+                    break;
+                case 'hypopigmented':
+                    count = 60;
+                    size = { min: 8, max: 12 };
+                    opacity = { min: 0.6, max: 0.8 };
+                    color = '#fff1e6';
+                    break;
+                case 'normotrophic':
+                default:
+                    count = 60;
+                    size = { min: 8, max: 12 };
+                    opacity = { min: 0.6, max: 0.8 };
+                    color = '#ffcc99';
+                    break;
+            }
+
+            // Create keratinocytes
+            for (let i = 0; i < count; i++) {
+                const keratinocyte = document.createElement('div');
+                keratinocyte.classList.add('keratinocyte');
+
+                // Random position
+                const left = Math.random() * 100;
+                const top = Math.random() * 100;
+
+                // Random size and opacity
+                const cellSize = size.min + Math.random() * (size.max - size.min);
+                const cellOpacity = opacity.min + Math.random() * (opacity.max - opacity.min);
+
+                // Set styles
+                keratinocyte.style.left = `${left}%`;
+                keratinocyte.style.top = `${top}%`;
+                keratinocyte.style.width = `${cellSize}px`;
+                keratinocyte.style.height = `${cellSize}px`;
+                keratinocyte.style.opacity = cellOpacity;
+                keratinocyte.style.backgroundColor = color;
+
+                // Add to container
+                keratinocytesContainer.appendChild(keratinocyte);
+
+                // Add animation with delay for staggered effect
+                setTimeout(() => {
+                    keratinocyte.style.transform = 'scale(1)';
+                }, i * 20);
+            }
+        }
+
+        // Create melanocytes based on scar type
+        function createMelanocytes(scarType) {
+            melanocytesContainer.innerHTML = '';
+
+            let count, opacity;
+
+            switch(scarType) {
+                case 'normal':
+                    count = 15;
+                    opacity = { min: 0.5, max: 0.7 };
+                    break;
+                case 'hyperpigmented':
+                    count = 30;
+                    opacity = { min: 0.7, max: 0.9 };
+                    break;
+                case 'hypopigmented':
+                    count = 5;
+                    opacity = { min: 0.3, max: 0.5 };
+                    break;
+                default:
+                    count = 15;
+                    opacity = { min: 0.5, max: 0.7 };
+                    break;
+            }
+
+            // Create melanocytes
+            for (let i = 0; i < count; i++) {
+                const melanocyte = document.createElement('div');
+                melanocyte.classList.add('melanocyte');
+
+                // Random position
+                const left = Math.random() * 100;
+                const top = 40 + Math.random() * 60; // Position in lower part of epidermis
+
+                // Random opacity
+                const cellOpacity = opacity.min + Math.random() * (opacity.max - opacity.min);
+
+                // Set styles
+                melanocyte.style.left = `${left}%`;
+                melanocyte.style.top = `${top}%`;
+                melanocyte.style.opacity = cellOpacity;
+
+                // Add to container
+                melanocytesContainer.appendChild(melanocyte);
+
+                // Add animation with delay for staggered effect
+                setTimeout(() => {
+                    melanocyte.style.transform = 'scale(1)';
+                }, i * 30);
+            }
+        }
+
+        // Create collagen and elastin based on scar type
+        function createCollagenElastin(scarType) {
+            collagenContainer.innerHTML = '';
+
+            let collagenCount, elastinCount, collagenLength, elastinLength, pattern;
+
+            switch(scarType) {
+                case 'normal':
+                    collagenCount = 40;
+                    elastinCount = 20;
+                    collagenLength = { min: 40, max: 80 };
+                    elastinLength = { min: 30, max: 60 };
+                    pattern = 'basket-weave';
+                    break;
+                case 'atrophic':
+                    collagenCount = 20;
+                    elastinCount = 10;
+                    collagenLength = { min: 20, max: 50 };
+                    elastinLength = { min: 15, max: 40 };
+                    pattern = 'sparse';
+                    break;
+                case 'hypertrophic':
+                    collagenCount = 60;
+                    elastinCount = 15;
+                    collagenLength = { min: 50, max: 90 };
+                    elastinLength = { min: 20, max: 50 };
+                    pattern = 'parallel';
+                    break;
+                case 'keloid':
+                    collagenCount = 80;
+                    elastinCount = 10;
+                    collagenLength = { min: 60, max: 100 };
+                    elastinLength = { min: 15, max: 40 };
+                    pattern = 'random-nodular';
+                    break;
+                case 'contracture':
+                    collagenCount = 50;
+                    elastinCount = 15;
+                    collagenLength = { min: 40, max: 80 };
+                    elastinLength = { min: 20, max: 50 };
+                    pattern = 'aligned';
+                    break;
+                case 'striae':
+                    collagenCount = 30;
+                    elastinCount = 8;
+                    collagenLength = { min: 30, max: 70 };
+                    elastinLength = { min: 15, max: 40 };
+                    pattern = 'linear-breaks';
+                    break;
+                default:
+                    collagenCount = 40;
+                    elastinCount = 20;
+                    collagenLength = { min: 40, max: 80 };
+                    elastinLength = { min: 30, max: 60 };
+                    pattern = 'basket-weave';
+                    break;
+            }
+
+            // Create collagen fibers
+            for (let i = 0; i < collagenCount; i++) {
+                const collagen = document.createElement('div');
+                collagen.classList.add('collagen');
+
+                // Set position and orientation based on pattern
+                let left, top, length, angle;
+
+                switch(pattern) {
+                    case 'basket-weave':
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = Math.random() * 360;
+                        break;
+                    case 'sparse':
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = Math.random() * 360;
+                        break;
+                    case 'parallel':
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = (Math.random() * 30) - 15; // Mostly horizontal with small variations
+                        break;
+                    case 'random-nodular':
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = Math.random() * 360;
+                        break;
+                    case 'aligned':
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = 0; // Horizontal alignment
+                        break;
+                    case 'linear-breaks':
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = 90; // Vertical alignment
+                        break;
+                    default:
+                        left = Math.random() * 80;
+                        top = Math.random() * 90;
+                        length = collagenLength.min + Math.random() * (collagenLength.max - collagenLength.min);
+                        angle = Math.random() * 360;
+                }
+
+                // Set styles
+                collagen.style.left = `${left}%`;
+                collagen.style.top = `${top}%`;
+                collagen.style.width = `${length}px`;
+                collagen.style.transform = `rotate(${angle}deg)`;
+
+                if (pattern === 'random-nodular' && Math.random() > 0.7) {
+                    collagen.style.height = '4px'; // Thicker fibers for nodular arrangement
+                }
+
+                // Add to container
+                collagenContainer.appendChild(collagen);
+
+                // Add animation with delay for staggered growth effect
+                setTimeout(() => {
+                    collagen.classList.add('collagen-animation');
+                }, i * 30);
+            }
+
+            // Create elastin fibers
+            for (let i = 0; i < elastinCount; i++) {
+                const elastin = document.createElement('div');
+                elastin.classList.add('elastin');
+
+                // Random position
+                const left = Math.random() * 80;
+                const top = Math.random() * 90;
+
+                // Random length
+                const length = elastinLength.min + Math.random() * (elastinLength.max - elastinLength.min);
+
+                // Random angle
+                let angle;
+                if (pattern === 'aligned') {
+                    angle = 0; // Horizontal alignment
+                } else if (pattern === 'linear-breaks') {
+                    angle = 90; // Vertical alignment
+                } else {
+                    angle = Math.random() * 360;
+                }
+
+                // Set styles
+                elastin.style.left = `${left}%`;
+                elastin.style.top = `${top}%`;
+                elastin.style.width = `${length}px`;
+                elastin.style.transform = `rotate(${angle}deg)`;
+
+                if (scarType === 'striae') {
+                    elastin.style.opacity = '0.3'; // Reduced opacity for damaged elastin
+                }
+
+                // Add to container
+                collagenContainer.appendChild(elastin);
+
+                // Add animation with delay for staggered growth effect
+                setTimeout(() => {
+                    elastin.classList.add('collagen-animation');
+                }, i * 50 + 500);
+            }
+        }
+
+        // Create fibroblasts based on scar type and healing phase
+        function createFibroblasts(scarType, phase = 'normal') {
+            fibroblastsContainer.innerHTML = '';
+
+            let count, animated;
+
+            // Determine count based on scar type
+            switch(scarType) {
+                case 'normal':
+                    count = 10;
+                    animated = 5;
+                    break;
+                case 'atrophic':
+                    count = 5;
+                    animated = 2;
+                    break;
+                case 'hypertrophic':
+                    count = 20;
+                    animated = 10;
+                    break;
+                case 'keloid':
+                    count = 30;
+                    animated = 15;
+                    break;
+                case 'contracture':
+                    count = 15;
+                    animated = 8;
+                    break;
+                default:
+                    count = 10;
+                    animated = 5;
+                    break;
+            }
+
+            // Adjust count based on healing phase
+            if (phase === 'inflammation') {
+                count = Math.floor(count * 0.5);
+                animated = Math.floor(animated * 0.5);
+            } else if (phase === 'proliferation') {
+                count = count * 2;
+                animated = animated * 2;
+            } else if (phase === 'remodeling-early') {
+                count = Math.floor(count * 1.5);
+                animated = Math.floor(animated * 1.5);
+            }
+
+            // Create fibroblasts
+            for (let i = 0; i < count; i++) {
+                const fibroblast = document.createElement('div');
+                fibroblast.classList.add('fibroblast');
+
+                // Random position
+                const left = Math.random() * 90;
+                const top = Math.random() * 90;
+
+                // Set styles
+                fibroblast.style.left = `${left}%`;
+                fibroblast.style.top = `${top}%`;
+
+                // Add animation to some fibroblasts
+                if (i < animated) {
+                    fibroblast.classList.add('fibroblast-animation');
+                }
+
+                // Special styling for myofibroblasts in contracture scars
+                if (scarType === 'contracture') {
+                    fibroblast.style.backgroundColor = 'rgba(204, 102, 0, 0.7)';
+                    fibroblast.style.width = '14px';
+                    fibroblast.style.height = '7px';
+                }
+
+                // Add to container with delay for staggered appearance
+                setTimeout(() => {
+                    fibroblastsContainer.appendChild(fibroblast);
+                }, i * 50);
+            }
+        }
+
+        // Create inflammatory cells based on scar type and healing phase
+        function createInflammatoryCells(scarType, phase = 'normal') {
+            inflammatoryContainer.innerHTML = '';
+
+            let count = 0;
+
+            // Determine count based on healing phase
+            if (phase === 'inflammation') {
+                count = 50;
+            } else if (phase === 'proliferation') {
+                count = 20;
+            } else if (phase === 'remodeling-early') {
+                count = 10;
+            } else if (phase === 'injury') {
+                count = 30;
+            }
+
+            // Adjust based on scar type
+            if (scarType === 'hypertrophic' || scarType === 'keloid') {
+                count = Math.floor(count * 1.5); // More inflammation in these scar types
+            }
+
+            // Create inflammatory cells
+            for (let i = 0; i < count; i++) {
+                const inflammatoryCell = document.createElement('div');
+                inflammatoryCell.classList.add('inflammatory-cell');
+
+                // Random position
+                const left = Math.random() * 90;
+                const top = Math.random() * 90;
+
+                // Set styles
+                inflammatoryCell.style.left = `${left}%`;
+                inflammatoryCell.style.top = `${top}%`;
+                inflammatoryCell.classList.add('inflammatory-animation');
+
+                // Add to container with delay for staggered appearance
+                setTimeout(() => {
+                    inflammatoryContainer.appendChild(inflammatoryCell);
+                }, i * 30);
+            }
+        }
+
+        // Create interactive hotspots
+        function createHotspots(scarType) {
+            hotspotsContainer.innerHTML = '';
+            calloutsContainer.innerHTML = '';
+
+            // Define hotspots based on scar type
+            let hotspots = [];
+
+            switch(scarType) {
+                case 'normal':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Stratum Corneum', text: 'Outermost layer of the epidermis composed of keratin-filled dead cells providing barrier function' },
+                        { left: 80, top: 10, label: 'Keratinocytes', text: 'Main cell type of the epidermis, producing keratin for skin protection' },
+                        { left: 50, top: 40, label: 'Collagen Fibers', text: 'Basket-weave pattern of type I and III collagen providing skin strength' },
+                        { left: 20, top: 60, label: 'Fibroblasts', text: 'Produce collagen, elastin and other ECM components in the dermis' },
+                        { left: 80, top: 60, label: 'Elastin Fibers', text: 'Provide skin elasticity and recoil capabilities' }
+                    ];
+                    break;
+                case 'atrophic':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Thinned Epidermis', text: 'Reduced thickness due to decreased keratinocyte proliferation' },
+                        { left: 80, top: 10, label: 'Fewer Keratinocytes', text: 'Reduced cell density and diminished barrier function' },
+                        { left: 30, top: 40, label: 'Sparse Collagen', text: 'Decreased collagen density with fragmented fibers leading to depression' },
+                        { left: 70, top: 40, label: 'Reduced Elastin', text: 'Fragmented elastin network with impaired function' },
+                        { left: 50, top: 60, label: 'Low Fibroblast Activity', text: 'Decreased number and activity of fibroblasts reducing matrix production' }
+                    ];
+                    break;
+                case 'hypertrophic':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Thickened Epidermis', text: 'Increased keratinocyte proliferation creates thicker epidermal layer' },
+                        { left: 80, top: 10, label: 'Hyperactive Keratinocytes', text: 'Increased production of growth factors and cytokines' },
+                        { left: 30, top: 40, label: 'Excessive Collagen', text: 'Parallel bundles of primarily type III collagen replacing basket-weave pattern' },
+                        { left: 70, top: 40, label: 'Nodular Collagen', text: 'Dense nodular arrangements of collagen fibers' },
+                        { left: 50, top: 60, label: 'Overactive Fibroblasts', text: 'Increased number and activity with excessive ECM production' }
+                    ];
+                    break;
+                case 'keloid':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Greatly Thickened Epidermis', text: 'Significant hyperplasia with abnormal keratinocyte differentiation' },
+                        { left: 80, top: 5, label: 'Abnormal Keratinocytes', text: 'Altered cytokine signaling promoting continued inflammation' },
+                        { left: 30, top: 40, label: 'Excessive Type I Collagen', text: 'Random, disorganized thick collagen bundles extending beyond wound borders' },
+                        { left: 70, top: 35, label: 'Hyalinized Collagen', text: 'Glass-like appearance of collagen with thick fibrous bundles' },
+                        { left: 20, top: 60, label: 'Autonomous Fibroblasts', text: 'Continued proliferation and activity even without stimulation' },
+                        { left: 80, top: 60, label: 'Reduced Apoptosis', text: 'Fibroblasts show resistance to programmed cell death' }
+                    ];
+                    break;
+                case 'contracture':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Compressed Epidermis', text: 'Dense arrangement of keratinocytes due to mechanical forces' },
+                        { left: 80, top: 10, label: 'Altered Rete Ridges', text: 'Flattened dermal-epidermal junction with reduced surface area' },
+                        { left: 30, top: 40, label: 'Aligned Collagen', text: 'Collagen fibers oriented in direction of tension forces' },
+                        { left: 70, top: 40, label: 'Reduced Elasticity', text: 'Decreased and damaged elastin fibers impairing flexibility' },
+                        { left: 50, top: 60, label: 'Myofibroblasts', text: 'Contractile cells with α-SMA expression generating tension forces' }
+                    ];
+                    break;
+                case 'striae':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Thinned Epidermis', text: 'Atrophic changes with flattened rete ridges' },
+                        { left: 80, top: 10, label: 'Reduced Keratinocytes', text: 'Decreased cell density affecting barrier function' },
+                        { left: 30, top: 40, label: 'Damaged Elastin', text: 'Broken elastin fibers from mechanical stretching' },
+                        { left: 70, top: 40, label: 'Vertical Collagen', text: 'Reorganization of collagen perpendicular to direction of skin tension' },
+                        { left: 50, top: 60, label: 'Early Inflammation', text: 'Initial inflammatory phase followed by reduced fibroblast activity' }
+                    ];
+                    break;
+                case 'hyperpigmented':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Normal Epidermis Structure', text: 'Typically normal keratinocyte arrangement and proliferation' },
+                        { left: 80, top: 10, label: 'Increased Melanin', text: 'Greater melanin production and transfer to keratinocytes' },
+                        { left: 30, top: 40, label: 'Hyperactive Melanocytes', text: 'Increased melanocyte activity with enhanced melanin synthesis' },
+                        { left: 70, top: 40, label: 'Collagen Variable', text: 'Collagen arrangement depends on underlying scar type' },
+                        { left: 50, top: 60, label: 'Post-Inflammatory', text: 'Often results from inflammatory phase of wound healing' }
+                    ];
+                    break;
+                case 'hypopigmented':
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Normal Epidermis Structure', text: 'Typically normal keratinocyte arrangement and proliferation' },
+                        { left: 80, top: 10, label: 'Decreased Melanin', text: 'Reduced melanin production or transfer to keratinocytes' },
+                        { left: 30, top: 40, label: 'Damaged Melanocytes', text: 'Reduced number or activity of melanocytes' },
+                        { left: 70, top: 40, label: 'Collagen Variable', text: 'Collagen arrangement depends on underlying scar type' },
+                        { left: 50, top: 60, label: 'Melanocyte Destruction', text: 'Can result from severe injury or inflammatory response' }
+                    ];
+                    break;
+                default:
+                    hotspots = [
+                        { left: 20, top: 10, label: 'Epidermis', text: 'Outermost layer of skin containing keratinocytes' },
+                        { left: 80, top: 10, label: 'Keratinocytes', text: 'Main cell type of the epidermis' },
+                        { left: 50, top: 40, label: 'Dermis', text: 'Middle layer containing collagen, elastin and fibroblasts' },
+                        { left: 20, top: 60, label: 'Fibroblasts', text: 'Cells responsible for producing extracellular matrix' },
+                        { left: 80, top: 60, label: 'Hypodermis', text: 'Deepest layer containing fat and connective tissue' }
+                    ];
+            }
+
+            // Create hotspots and callout labels
+            hotspots.forEach((hotspot, index) => {
+                // Create hotspot
+                const hotspotElement = document.createElement('div');
+                hotspotElement.classList.add('hotspot');
+                hotspotElement.style.left = `${hotspot.left}%`;
+                hotspotElement.style.top = `${hotspot.top}%`;
+
+                // Create callout
+                const calloutElement = document.createElement('div');
+                calloutElement.classList.add('callout');
+                calloutElement.textContent = hotspot.text;
+
+                // Determine callout position
+                if (hotspot.top < 30) {
+                    calloutElement.classList.add('bottom');
+                    calloutElement.style.top = `${hotspot.top + 3}%`;
+                } else if (hotspot.top > 70) {
+                    calloutElement.classList.add('top');
+                    calloutElement.style.bottom = `${100 - hotspot.top + 3}%`;
+                } else if (hotspot.left < 50) {
+                    calloutElement.classList.add('right');
+                    calloutElement.style.left = `${hotspot.left + 3}%`;
+                } else {
+                    calloutElement.classList.add('left');
+                    calloutElement.style.right = `${100 - hotspot.left + 3}%`;
+                }
+
+                calloutElement.style.left = `${hotspot.left}%`;
+
+                // Add event listeners for hover
+                hotspotElement.addEventListener('mouseenter', () => {
+                    calloutElement.classList.add('visible');
+                });
+
+                hotspotElement.addEventListener('mouseleave', () => {
+                    calloutElement.classList.remove('visible');
+                });
+
+                // Add to containers with delay
+                setTimeout(() => {
+                    hotspotsContainer.appendChild(hotspotElement);
+                    calloutsContainer.appendChild(calloutElement);
+                }, index * 100);
+
+                // Add label text inside the callout
+                const labelElement = document.createElement('div');
+                labelElement.className = 'font-semibold mb-1';
+                labelElement.textContent = hotspot.label;
+                calloutElement.prepend(labelElement);
+            });
+        }
+
+        // Create scar formation animations on stratum corneum and epidermis
+        function createScarFormation(scarType) {
+            scarFormationOverlay.innerHTML = '';
+
+            if (scarType === 'normal' || scarType === 'normotrophic') return; // No scar formation for normal or normotrophic skin
+
+            // Create scar progression overlay
+            const scarProgression = document.createElement('div');
+            scarProgression.classList.add('scar-progression');
+            scarProgression.style.left = '35%'; // Centered in the epidermis
+            scarProgression.style.top = '10%';
+
+            // Add to overlay
+            scarFormationOverlay.appendChild(scarProgression);
+
+            // Animate scar progression
+            setTimeout(() => {
+                scarProgression.classList.add('active');
+            }, 500);
+
+            // Animate keratinocytes based on scar type
+            const keratinocytes = keratinocytesContainer.children;
+            for (let i = 0; i < keratinocytes.length; i++) {
+                setTimeout(() => {
+                    if (scarType === 'atrophic' || scarType === 'striae') {
+                        keratinocytes[i].classList.add('keratinocyte-thinning');
+                    } else if (scarType === 'hypertrophic' || scarType === 'keloid') {
+                        keratinocytes[i].classList.add('keratinocyte-proliferation');
+                    } else if (scarType === 'hyperpigmented') {
+                        gsap.to(keratinocytes[i], { backgroundColor: '#d9b38c', duration: 2, ease: 'power2.inOut' });
+                    } else if (scarType === 'hypopigmented') {
+                        gsap.to(keratinocytes[i], { backgroundColor: '#fff1e6', duration: 2, ease: 'power2.inOut' });
+                    } else if (scarType === 'contracture' ) {
+                                              // Completing the GSAP animation for contracture scar
+                    gsap.to(keratinocytes[i], { scale: 0.9, opacity: 0.8, duration: 2, ease: 'power2.inOut' });
+                    } 
+                }, i * 50); // Staggered animation for each keratinocyte
+            }
+
+            // Animate collagen fibers based on scar type
+            const collagenFibers = collagenContainer.querySelectorAll('.collagen');
+            for (let i = 0; i < collagenFibers.length; i++) {
+                setTimeout(() => {
+                    if (scarType === 'atrophic' || scarType === 'striae') {
+                        collagenFibers[i].classList.add('collagen-disruption');
+                    } else if (scarType === 'hypertrophic' || scarType === 'keloid') {
+                        collagenFibers[i].classList.add('collagen-excess');
+                    } else if (scarType === 'contracture') {
+                        gsap.to(collagenFibers[i], { width: '50px', rotation: 0, duration: 2, ease: 'power2.inOut' });
+                    }
+                }, i * 30);
+            }
+        }
+
+        // Update zoom views based on scar type
+        function updateZoomViews(scarType) {
+            // Keratinocyte Zoom
+            keratinocyteZoom.innerHTML = '';
+            let keratinocyteCount, keratinocyteSize, keratinocyteColor;
+            switch(scarType) {
+                case 'normal':
+                case 'normotrophic':
+                    keratinocyteCount = 20;
+                    keratinocyteSize = 20;
+                    keratinocyteColor = '#ffcc99';
+                    break;
+                case 'atrophic':
+                case 'striae':
+                    keratinocyteCount = 10;
+                    keratinocyteSize = 15;
+                    keratinocyteColor = '#ffcc99';
+                    break;
+                case 'hypertrophic':
+                case 'keloid':
+                    keratinocyteCount = 30;
+                    keratinocyteSize = 25;
+                    keratinocyteColor = '#ffcc99';
+                    break;
+                case 'contracture':
+                    keratinocyteCount = 25;
+                    keratinocyteSize = 20;
+                    keratinocyteColor = '#ffcc99';
+                    break;
+                case 'hyperpigmented':
+                    keratinocyteCount = 20;
+                    keratinocyteSize = 20;
+                    keratinocyteColor = '#d9b38c';
+                    break;
+                case 'hypopigmented':
+                    keratinocyteCount = 20;
+                    keratinocyteSize = 20;
+                    keratinocyteColor = '#fff1e6';
+                    break;
+            }
+            for (let i = 0; i < keratinocyteCount; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('keratinocyte');
+                cell.style.left = `${Math.random() * 90}%`;
+                cell.style.top = `${Math.random() * 90}%`;
+                cell.style.width = `${keratinocyteSize}px`;
+                cell.style.height = `${keratinocyteSize}px`;
+                cell.style.backgroundColor = keratinocyteColor;
+                cell.style.opacity = '0';
+                keratinocyteZoom.appendChild(cell);
+                gsap.to(cell, { opacity: 0.8, duration: 1, delay: i * 0.05, ease: 'power1.in' });
+                if (scarType === 'hypertrophic' || scarType === 'keloid') {
+                    cell.classList.add('keratinocyte-proliferation');
+                } else if (scarType === 'atrophic' || scarType === 'striae') {
+                    cell.classList.add('keratinocyte-thinning');
+                }
+            }
+
+            // Collagen Zoom
+            collagenZoom.innerHTML = '';
+            let collagenCount, collagenLength, collagenPattern;
+            switch(scarType) {
+                case 'normal':
+                case 'normotrophic':
+                    collagenCount = 15;
+                    collagenLength = 60;
+                    collagenPattern = 'basket-weave';
+                    break;
+                case 'atrophic':
+                    collagenCount = 8;
+                    collagenLength = 40;
+                    collagenPattern = 'sparse';
+                    break;
+                case 'hypertrophic':
+                    collagenCount = 20;
+                    collagenLength = 80;
+                    collagenPattern = 'parallel';
+                    break;
+                case 'keloid':
+                    collagenCount = 25;
+                    collagenLength = 100;
+                    collagenPattern = 'random-nodular';
+                    break;
+                case 'contracture':
+                    collagenCount = 18;
+                    collagenLength = 70;
+                    collagenPattern = 'aligned';
+                    break;
+                case 'striae':
+                    collagenCount = 10;
+                    collagenLength = 50;
+                    collagenPattern = 'linear-breaks';
+                    break;
+                default:
+                    collagenCount = 15;
+                    collagenLength = 60;
+                    collagenPattern = 'basket-weave';
+            }
+            for (let i = 0; i < collagenCount; i++) {
+                const fiber = document.createElement('div');
+                fiber.classList.add('collagen');
+                fiber.style.left = `${Math.random() * 80}%`;
+                fiber.style.top = `${Math.random() * 80}%`;
+                fiber.style.width = `${collagenLength}px`;
+                let angle;
+                if (collagenPattern === 'basket-weave' || collagenPattern === 'sparse' || collagenPattern === 'random-nodular') {
+                    angle = Math.random() * 360;
+                } else if (collagenPattern === 'parallel') {
+                    angle = (Math.random() * 30) - 15;
+                } else if (collagenPattern === 'aligned') {
+                    angle = 0;
+                } else if (collagenPattern === 'linear-breaks') {
+                    angle = 90;
+                }
+                fiber.style.transform = `rotate(${angle}deg)`;
+                fiber.style.opacity = '0';
+                collagenZoom.appendChild(fiber);
+                gsap.to(fiber, { opacity: 0.6, duration: 1, delay: i * 0.05, ease: 'power1.in' });
+                if (scarType === 'atrophic' || scarType === 'striae') {
+                    fiber.classList.add('collagen-disruption');
+                } else if (scarType === 'hypertrophic' || scarType === 'keloid') {
+                    fiber.classList.add('collagen-excess');
+                }
+            }
+
+            // Fibroblast Zoom
+            fibroblastZoom.innerHTML = '';
+            let fibroblastCount, fibroblastAnimated;
+            switch(scarType) {
+                case 'normal':
+                case 'normotrophic':
+                    fibroblastCount = 8;
+                    fibroblastAnimated = 4;
+                    break;
+                case 'atrophic':
+                    fibroblastCount = 4;
+                    fibroblastAnimated = 2;
+                    break;
+                case 'hypertrophic':
+                    fibroblastCount = 12;
+                    fibroblastAnimated = 6;
+                    break;
+                case 'keloid':
+                    fibroblastCount = 16;
+                    fibroblastAnimated = 8;
+                    break;
+                case 'contracture':
+                    fibroblastCount = 10;
+                    fibroblastAnimated = 5;
+                    break;
+                default:
+                    fibroblastCount = 8;
+                    fibroblastAnimated = 4;
+            }
+            for (let i = 0; i < fibroblastCount; i++) {
+                const cell = document.createElement('div');
+                cell.classList.add('fibroblast');
+                cell.style.left = `${Math.random() * 90}%`;
+                cell.style.top = `${Math.random() * 90}%`;
+                if (scarType === 'contracture') {
+                    cell.style.backgroundColor = 'rgba(204, 102, 0, 0.7)';
+                    cell.style.width = '14px';
+                    cell.style.height = '7px';
+                }
+                cell.style.opacity = '0';
+                fibroblastZoom.appendChild(cell);
+                gsap.to(cell, { opacity: 0.7, duration: 1, delay: i * 0.05, ease: 'power1.in' });
+                if (i < fibroblastAnimated) {
+                    cell.classList.add('fibroblast-animation');
+                }
+            }
+        }
+
+        // Update descriptions based on scar type
+        function updateDescriptions(scarType) {
+            let title, description, keratinocyteDesc, collagenDesc, fibroblastDesc;
+
+            switch(scarType) {
+                case 'normal':
+                    title = 'Normal Skin';
+                    description = 'Normal skin consists of three main layers: epidermis, dermis, and hypodermis. The epidermis contains keratinocytes that produce keratin, providing a protective barrier. The dermis contains collagen and elastin fibers arranged in a basket-weave pattern, providing strength and elasticity. Fibroblasts in the dermis produce extracellular matrix components.';
+                    keratinocyteDesc = '<strong>Normal:</strong> Organized layers of keratinocytes forming the stratum corneum with healthy keratin production for barrier function.';
+                    collagenDesc = '<strong>Normal:</strong> Collagen fibers (type I and III) arranged in a basket-weave pattern with elastin fibers providing elasticity and recoil.';
+                    fibroblastDesc = '<strong>Normal:</strong> Fibroblasts are scattered throughout the dermis, producing collagen and elastin in balanced amounts.';
+                    break;
+                case 'atrophic':
+                    title = 'Atrophic Scars';
+                    description = 'Atrophic scars appear as sunken or pitted areas due to loss of underlying tissue. They result from reduced keratinocyte proliferation leading to a thinner epidermis, and decreased collagen production with fragmented elastin fibers in the dermis, caused by diminished fibroblast activity.';
+                    keratinocyteDesc = '<strong>Atrophic:</strong> Reduced proliferation leads to a thinned epidermis with fewer keratinocyte layers and weaker barrier function.';
+                    collagenDesc = '<strong>Atrophic:</strong> Decreased collagen density with thin, fragmented fibers and disrupted elastin network.';
+                    fibroblastDesc = '<strong>Atrophic:</strong> Decreased fibroblast activity and number, resulting in insufficient matrix production.';
+                    break;
+                case 'hypertrophic':
+                    title = 'Hypertrophic Scars';
+                    description = 'Hypertrophic scars are raised but confined to the original wound boundaries. They feature thickened epidermis from keratinocyte hyperproliferation, excessive type III collagen in parallel bundles, and overactive fibroblasts producing abundant extracellular matrix.';
+                    keratinocyteDesc = '<strong>Hypertrophic:</strong> Hyperproliferation thickens the epidermis with increased keratinocyte activity.';
+                    collagenDesc = '<strong>Hypertrophic:</strong> Excessive type III collagen in parallel bundles replaces the normal basket-weave pattern.';
+                    fibroblastDesc = '<strong>Hypertrophic:</strong> Overactive fibroblasts with increased density and ECM production.';
+                    break;
+                case 'keloid':
+                    title = 'Keloid Scars';
+                    description = 'Keloid scars extend beyond the original wound, forming raised, firm masses. They exhibit significant epidermal thickening, excessive type I and III collagen in random, nodular patterns, and highly active fibroblasts with reduced apoptosis.';
+                    keratinocyteDesc = '<strong>Keloid:</strong> Significant hyperproliferation with abnormal differentiation thickens the epidermis.';
+                    collagenDesc = '<strong>Keloid:</strong> Excessive type I and III collagen in random, thick bundles extending beyond wound borders.';
+                    fibroblastDesc = '<strong>Keloid:</strong> Highly overactive fibroblasts with continued proliferation and resistance to apoptosis.';
+                    break;
+                case 'contracture':
+                    title = 'Contracture Scars';
+                    description = 'Contracture scars tighten the skin, often from burns, due to mechanical tension. The epidermis is compressed with dense keratinocyte layers, collagen fibers are shortened and aligned, and myofibroblasts generate contractile forces.';
+                    keratinocyteDesc = '<strong>Contracture:</strong> Dense, compressed keratinocyte layers due to tension forces.';
+                    collagenDesc = '<strong>Contracture:</strong> Shortened collagen fibers aligned under tension with reduced elastin.';
+                    fibroblastDesc = '<strong>Contracture:</strong> Myofibroblasts dominate, generating high tension forces for contraction.';
+                    break;
+                case 'striae':
+                    title = 'Stretch Marks (Striae)';
+                    description = 'Stretch marks appear as linear scars from rapid skin stretching. The epidermis thins with flattened rete ridges, elastin fibers are damaged, and collagen reorganizes abnormally after initial sparsity, with reduced fibroblast activity following early inflammation.';
+                    keratinocyteDesc = '<strong>Striae:</strong> Thinned epidermis with reduced keratinocyte density and flattened rete ridges.';
+                    collagenDesc = '<strong>Striae:</strong> Damaged elastin fibers and initially sparse collagen that later reorganizes vertically.';
+                    fibroblastDesc = '<strong>Striae:</strong> Initial inflammation followed by reduced fibroblast activity.';
+                    break;
+                case 'hyperpigmented':
+                    title = 'Hyperpigmented Scars';
+                    description = 'Hyperpigmented scars are darker than surrounding skin due to increased melanin. Keratinocytes receive excess melanin from overactive melanocytes, while collagen and fibroblast activity vary based on the underlying scar type.';
+                    keratinocyteDesc = '<strong>Hyperpigmented:</strong> Normal structure with increased melanin transfer darkening the scar.';
+                    collagenDesc = '<strong>Hyperpigmented:</strong> Variable depending on underlying scar type.';
+                    fibroblastDesc = '<strong>Hyperpigmented:</strong> Normal fibroblast activity with increased melanocyte activity.';
+                    break;
+                case 'hypopigmented':
+                    title = 'Hypopigmented Scars';
+                    description = 'Hypopigmented scars are lighter than surrounding skin due to reduced melanin. Keratinocytes receive less melanin from damaged or fewer melanocytes, with collagen and fibroblast activity varying by underlying scar type.';
+                    keratinocyteDesc = '<strong>Hypopigmented:</strong> Normal structure with decreased melanin transfer lightening the scar.';
+                    collagenDesc = '<strong>Hypopigmented:</strong> Variable depending on underlying scar type.';
+                    fibroblastDesc = '<strong>Hypopigmented:</strong> Normal fibroblast activity with decreased melanocyte activity.';
+                    break;
+                case 'normotrophic':
+                    title = 'Flat/Normotrophic Scars';
+                    description = 'Normotrophic scars heal flat and level with surrounding skin. Keratinocyte proliferation is near normal, collagen is slightly disorganized but adequate, and fibroblast activity stabilizes over time.';
+                    keratinocyteDesc = '<strong>Normotrophic:</strong> Near normal keratinocyte proliferation with effective barrier function.';
+                    collagenDesc = '<strong>Normotrophic:</strong> Normal collagen amount with slightly disorganized pattern.';
+                    fibroblastDesc = '<strong>Normotrophic:</strong> Initially active fibroblasts returning to normal levels.';
+                    break;
+            }
+
+            // Update main description
+            scarDescription.innerHTML = `
+                <h3 class="text-xl font-semibold text-indigo-700 mb-2">${title}</h3>
+                <p class="text-gray-700">${description}</p>
+            `;
+
+            // Update zoom view descriptions
+            keratinocyteDescription.innerHTML = keratinocyteDesc;
+            collagenDescription.innerHTML = collagenDesc;
+            fibroblastDescription.innerHTML = fibroblastDesc;
+        }
+
+        // Update timeline description based on healing phase
+        function updateTimelineDescription(phase) {
+            let description;
+
+            switch(phase) {
+                case 'injury':
+                    description = 'Immediate injury phase: Tissue damage triggers hemostasis with platelet aggregation and fibrin clot formation. Inflammatory cells begin to infiltrate.';
+                    break;
+                case 'inflammation':
+                    description = 'Inflammation phase: Neutrophils and macrophages clear debris and pathogens. Cytokines stimulate fibroblast migration and keratinocyte activation.';
+                    break;
+                case 'proliferation':
+                    description = 'Proliferation phase: Fibroblasts produce type III collagen to form granulation tissue. Keratinocytes proliferate to re-epithelialize the wound.';
+                    break;
+                case 'remodeling-early':
+                    description = 'Early remodeling phase: Type III collagen is replaced by stronger type I collagen. Fibroblast activity peaks as the ECM reorganizes.';
+                    break;
+                case 'remodeling-late':
+                    description = 'Late remodeling phase: Collagen fibers mature and align, fibroblast activity decreases, and the scar strengthens over months to years.';
+                    break;
+                default:
+                    description = 'Select a phase in the healing timeline to see cellular changes during scar formation.';
+            }
+
+            timelineDescription.innerHTML = `<p>${description}</p>`;
+        }
+    </script>
+</body>
+</html>
